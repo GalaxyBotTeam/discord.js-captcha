@@ -2,6 +2,8 @@
     🎓 Discord.js Captcha 🎓
 </h1>
 
+<h3>Fork of (https://npmjs.com/package/discord.js-captcha)</h3>
+
 <center style="margin-bottom:1rem;">A powerful package for Discord.js v14 that allows you to easily create CAPTCHAs for Discord Servers.</center>
 
 [![NPM](https://nodei.co/npm/discord.js-captcha.png)](https://npmjs.com/package/discord.js-captcha)
@@ -36,7 +38,7 @@ To learn more about what a CAPTCHA is, you can [watch this video](https://www.yo
 
 To install this awesome module, type the command shown below into your Terminal.
 
-`npm i discord.js-captcha --save`
+`npm i @galaxybot.app/discord.js-captcha --save`
 
 For versions 3.0.0 and above, you'll also need Discord.js v14.
 

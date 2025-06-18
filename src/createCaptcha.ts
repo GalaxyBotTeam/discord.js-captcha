@@ -1,4 +1,4 @@
-const shuffle = (arr) => {
+const shuffle = (arr: string[]) => {
     let i = arr.length;
     while (i) {
         let j = Math.floor(Math.random() * i--);
@@ -7,11 +7,10 @@ const shuffle = (arr) => {
     return arr;
 };
 
-/**
- * @typedef {Object} CaptchaImageData
- * @prop {Buffer} image The CAPTCHA Image.
- * @prop {String} text The Answer to the CAPTCHA.
- */
+export interface CaptchaImageData {
+    image: Buffer;
+    text: String;
+}
 
 /**
  * Asynchronously Generates a CAPTCHA.
@@ -20,7 +19,7 @@ const shuffle = (arr) => {
  * @returns {CaptchaImageData} The CAPTCHA Image Data.
  */
 
-module.exports = async function createCaptcha(length = 6, blacklist = "") {
+export async function createCaptcha(length: number = 6, blacklist: string = ""): Promise<CaptchaImageData> {
 
     let chars = [
         "a",
@@ -119,13 +118,13 @@ module.exports = async function createCaptcha(length = 6, blacklist = "") {
     // Draw lines
     ctx.beginPath();
 
-    const coords = [];
+    const coords: string[][] = [];
 
     for (let i = 0; i < 4; i++) {
         if (!coords[i])
             coords[i] = [];
         for (let j = 0; j < 5; j++)
-            coords[i][j] = Math.round(Math.random() * 80) + j * 80;
+            coords[i][j] = String(Math.round(Math.random() * 80) + j * 80);
         if (!(i % 2))
             coords[i] = shuffle(coords[i]);
     }

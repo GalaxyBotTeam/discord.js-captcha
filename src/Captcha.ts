@@ -1,33 +1,41 @@
-const { Client, GuildMember, EmbedBuilder, ChannelType, version } = require("discord.js");
-const EventEmitter = require("events");
-const createCaptcha = require("./createCaptcha");
-const handleChannelType = require("./handleChannelType");
+import {
+    Client,
+    GuildMember,
+    EmbedBuilder,
+    ChannelType,
+    version,
+    TextChannel,
+    TextBasedChannel,
+    DMChannel, Message, GuildTextBasedChannel
+} from "discord.js";
+import EventEmitter from "events";
+import {createCaptcha} from "./createCaptcha";
+import {handleChannelType} from "./handleChannelType";
 
-/**
- * @typedef {Object} CaptchaImageData
- * @prop {Buffer} image The CAPTCHA Image.
- * @prop {String} text The Answer to the CAPTCHA.
- */
+interface CaptchaImageData {
+    image: Buffer;
+    text: string;
+}
 
 /**
  * Captcha Options
- * @typedef {Object} CaptchaOptions
- * @prop {String} [roleID=undefined] (OPTIONAL): The ID of the Discord Role to Give when the CAPTCHA is complete.
- * @prop {String} [channelID=undefined] (OPTIONAL): The ID of the Discord Text Channel to Send the CAPTCHA to if the user's Direct Messages are locked. Use the option "sendToTextChannel", and set it to "true" to always send the CAPTCHA to the Text Channel.
- * @prop {Boolean} [sendToTextChannel=false] (OPTIONAL): Whether you want the CAPTCHA to be sent to a specified Text Channel instead of Direct Messages, regardless of whether the user's DMs are locked. Use the option "channelID" to specify the Text Channel.
- * @prop {Boolean} [addRoleOnSuccess=true] (OPTIONAL): Whether you want the Bot to Add the role to the User if the CAPTCHA is Solved Successfully.
- * @prop {Boolean} [kickOnFailure=true] (OPTIONAL): Whether you want the Bot to Kick the User if the CAPTCHA is Failed.
- * @prop {Boolean} [caseSensitive=true] (OPTIONAL): Whether you want the CAPTCHA to be case-sensitive.
- * @prop {Number} [attempts=1] (OPTIONAL): The Number of Attempts Given to Solve the CAPTCHA.
- * @prop {Number} [timeout=60000] (OPTIONAL): The Time in Milliseconds before the CAPTCHA expires and the User fails the CAPTCHA.
- * @prop {Boolean} [showAttemptCount=true] (OPTIONAL): Whether you want to show the Attempt Count in the CAPTCHA Prompt. (Displayed in Embed Footer)
- * @prop {EmbedBuilder} [customPromptEmbed=undefined] (OPTIONAL): Custom Discord Embed to be Shown for the CAPTCHA Prompt.
- * @prop {EmbedBuilder} [customSuccessEmbed=undefined] (OPTIONAL): Custom Discord Embed to be Shown for the CAPTCHA Success Message.
- * @prop {EmbedBuilder} [customFailureEmbed=undefined] (OPTIONAL): Custom Discord Embed to be Shown for the CAPTCHA Failure Message.
- * 
  */
+export interface CaptchaOptions {
+    roleID?: string;
+    channelID?: string;
+    sendToTextChannel?: boolean;
+    addRoleOnSuccess?: boolean;
+    kickOnFailure?: boolean;
+    caseSensitive?: boolean;
+    attempts?: number;
+    timeout?: number;
+    showAttemptCount?: boolean;
+    customPromptEmbed?: EmbedBuilder;
+    customSuccessEmbed?: EmbedBuilder;
+    customFailureEmbed?: EmbedBuilder;
+}
 
-class Captcha extends EventEmitter {
+export class Captcha extends EventEmitter {
 
     /**
     * Creates a New Instance of the Captcha Class.
@@ -90,11 +98,19 @@ class Captcha extends EventEmitter {
     *     customFailureEmbed: new EmbedBuilder(), //customise the embed that will be sent to the user when they fail to solve the captcha
     * });
     */
-    constructor(client, options = {}) {
+
+    private client!: Client;
+
+    private options!: CaptchaOptions;
+
+    constructor(client: Client, options: CaptchaOptions = {}) {
         super();
 
         //check discord.js version
-        if (version.split(".")[0] < 14) return console.log(`Discord.js Captcha Error: Discord.js v14 or later is required.\nPlease check the README for finding a compatible version for Discord.js v${version.split(".")[0]}\nNeed help? Join our Discord server at 'https://discord.gg/P2g24jp'`);
+        if (Number(version.split(".")[0]) < 14) {
+            console.log(`Discord.js Captcha Error: Discord.js v14 or later is required.\nPlease check the README for finding a compatible version for Discord.js v${version.split(".")[0]}\nNeed help? Join our Discord server at 'https://discord.gg/P2g24jp'`);
+            return;
+        }
 
         if (!client) {
             console.log(`Discord.js Captcha Error: No Discord Client was Provided!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
@@ -115,28 +131,12 @@ class Captcha extends EventEmitter {
             console.log(`Discord.js Captcha Error: Option "addRoleOnSuccess" was set to true, but "roleID" was not Provided!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
             process.exit(1)
         }
-        if (options.attempts < 1) {
+        if (options.attempts && options.attempts < 1) {
             console.log(`Discord.js Captcha Error: Option "attempts" must be Greater than 0!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
             process.exit(1)
         }
-        if (options.timeout < 1) {
+        if (options.timeout && options.timeout < 1) {
             console.log(`Discord.js Captcha Error: Option "timeout" must be Greater than 0!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            process.exit(1)
-        }
-        if (options.caseSensitive && (typeof options.caseSensitive !== "boolean")) {
-            console.log(`Discord.js Captcha Error: Option "caseSensitive" must be of type boolean!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            process.exit(1)
-        }
-        if (options.customPromptEmbed && (typeof options.customPromptEmbed === "string")) {
-            console.log(`Discord.js Captcha Error: Option "customPromptEmbed" is not an instance of EmbedBuilder!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            process.exit(1)
-        }
-        if (options.customSuccessEmbed && (typeof options.customSuccessEmbed === "string")) {
-            console.log(`Discord.js Captcha Error: Option "customSuccessEmbed" is not an instance of EmbedBuilder!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            process.exit(1)
-        }
-        if (options.customFailureEmbed && (typeof options.customFailureEmbed === "string")) {
-            console.log(`Discord.js Captcha Error: Option "customFailureEmbed" is not an instance of EmbedBuilder!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
             process.exit(1)
         }
 
@@ -177,26 +177,25 @@ class Captcha extends EventEmitter {
     *     captcha.present(member);
     * });
     */
-    async present(member, customCaptcha) {
-        if (!member) return console.log(`Discord.js Captcha Error: No Discord Member was Provided!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
+    async present(member: GuildMember, customCaptcha: CaptchaImageData): Promise<boolean> {
+        if (!member) return false;
         if (customCaptcha) {
-            if (!customCaptcha.image) return console.log(`Discord.js Captcha Error: Custom Captcha Image Data does not include an Image Buffer!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            if (!customCaptcha.text) return console.log(`Discord.js Captcha Error: Custom Captcha Image Data does not include a Text Answer!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            if (!Buffer.isBuffer(customCaptcha.image)) return console.log(`Discord.js Captcha Error: Custom Captcha Image is not a Buffer!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
-            if (typeof customCaptcha.text !== "string") return console.log(`Discord.js Captcha Error: Custom Captcha Text is not of type String!\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
+            if (!customCaptcha.image) return false;
+            if (!customCaptcha.text) return false;
+            if (!Buffer.isBuffer(customCaptcha.image)) return false
         }
         const user = member.user;
         const captcha = customCaptcha ? customCaptcha : await createCaptcha(6, this.options.caseSensitive ? "" : "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
         let attemptsLeft = this.options.attempts || 1;
         let attemptsTaken = 1;
-        let captchaResponses = [];
+        let captchaResponses: any[] = [];
 
         let captchaIncorrect = new EmbedBuilder()
             .setTitle("❌ You Failed to Complete the CAPTCHA!")
             .setDescription(`${member.user}, you failed to solve the CAPTCHA!\n\nCAPTCHA Text: **${captcha.text}**`)
             .setTimestamp()
             .setColor("Red")
-            .setThumbnail(member.guild.iconURL({ dynamic: true }))
+            .setThumbnail(member.guild.iconURL())
 
         if (this.options.customFailureEmbed) captchaIncorrect = this.options.customFailureEmbed
 
@@ -205,7 +204,7 @@ class Captcha extends EventEmitter {
             .setDescription(`${member.user}, you completed the CAPTCHA successfully, and you have been given access to **${member.guild.name}**!`)
             .setTimestamp()
             .setColor("Green")
-            .setThumbnail(member.guild.iconURL({ dynamic: true }))
+            .setThumbnail(member.guild.iconURL())
 
         if (this.options.customSuccessEmbed) captchaCorrect = this.options.customSuccessEmbed
 
@@ -213,17 +212,18 @@ class Captcha extends EventEmitter {
             .setTitle(`Welcome to ${member.guild.name}!`)
             .addFields([{ name: "I'm Not a Robot", value: `${member.user}, to gain access to **${member.guild.name}**, please solve the CAPTCHA below!\n\nThis is done to protect the server from raids consisting of spam bots.` }])
             .setColor("Random")
-            .setThumbnail(member.guild.iconURL({ dynamic: true }))
+            .setThumbnail(member.guild.iconURL())
 
         if (this.options.customPromptEmbed) captchaPrompt = this.options.customPromptEmbed
         if (this.options.showAttemptCount) captchaPrompt.setFooter({ text: this.options.attempts == 1 ? "You have one attempt to solve the CAPTCHA." : `Attempts Left: ${attemptsLeft}` })
         captchaPrompt.setImage('attachment://captcha.png')
 
-        await handleChannelType(this.client, this.options, member).then(async channel => {
-            let captchaEmbed;
+        await handleChannelType(this.client, this.options, member).then(async channelF => {
+            let captchaEmbed: Message<true>;
+            let channel: GuildTextBasedChannel | DMChannel;
             try {
                 if ((this.options.channelID) && this.options.sendToTextChannel == true) {
-                    channel = (await this.client.guilds.fetch(member.guild.id)).channels.resolve(this.options.channelID)
+                    channel = (await this.client.guilds.fetch(member.guild.id)).channels.resolve(this.options.channelID) as GuildTextBasedChannel;
                 }
                 else {
                     channel = await user.createDM()
@@ -233,26 +233,26 @@ class Captcha extends EventEmitter {
                     files: [
                         { name: "captcha.png", attachment: captcha.image }
                     ]
-                })
+                }) as Message<true>;
             } catch {
-                channel = (await this.client.guilds.fetch(member.guild.id)).channels.resolve(this.options.channelID)
+                channel = (await this.client.guilds.fetch(member.guild.id)).channels.resolve(this.options.channelID!) as GuildTextBasedChannel | DMChannel;
                 if (this.options.channelID) {
                     captchaEmbed = await channel.send({
                         embeds: [captchaPrompt],
                         files: [
                             { name: "captcha.png", attachment: captcha.image }
                         ]
-                    })
+                    }) as Message<true>;
                 } else {
                     return console.log(`Discord.js Captcha Error: User's Direct Messages are Locked!\nYou can attempt have the CAPTCHA sent to a Text Channel if it can't send to DMs by using the "channelID" Option in the Constructor.\nNeed Help? Join our Discord Server at 'https://discord.gg/P2g24jp'`);
                 }
             }
 
-            const captchaFilter = x => {
+            const captchaFilter = (x: Message<boolean>) => {
                 return (x.author.id == member.user.id)
             }
 
-            async function handleAttempt(captchaData) { //Handles CAPTCHA Responses and Checks
+            async function handleAttempt(captchaData: any) { //Handles CAPTCHA Responses and Checks
                 await captchaEmbed.channel.awaitMessages({
                     filter: captchaFilter, max: 1, time: captchaData.options.timeout
                 })
@@ -270,7 +270,7 @@ class Captcha extends EventEmitter {
                             })
 
                             await captchaEmbed.delete();
-                            await channel.send({ embeds: [captchaIncorrect] })
+                            await channel?.send({ embeds: [captchaIncorrect] })
                                 .then(async msg => {
                                     if (captchaData.options.kickOnFailure) await member.kick("Failed to Pass CAPTCHA")
                                     if (channel.type === ChannelType.GuildText) setTimeout(() => msg.delete(), 3000);
@@ -290,7 +290,7 @@ class Captcha extends EventEmitter {
                         let answer = String(responses.first()); //Converts the response message to a string
                         if (captchaData.options.caseSensitive !== true) answer = answer.toLowerCase(); //If the CAPTCHA is case sensitive, convert the response to lowercase
                         captchaResponses.push(answer); //Adds the answer to the array of answers
-                        if (channel.type === ChannelType.GuildText) await responses.first().delete();
+                        if (channel.type === ChannelType.GuildText) await responses.first()?.delete();
 
                         if (answer === captcha.text) { //If the answer is correct, this code will execute
                             //emit success event
@@ -361,7 +361,7 @@ class Captcha extends EventEmitter {
             })
             handleAttempt(this);
         })
+
+        return true; //Returns true if the CAPTCHA was presented successfully
     }
 }
-
-module.exports = Captcha;
